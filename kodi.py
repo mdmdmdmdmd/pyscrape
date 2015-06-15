@@ -1,4 +1,5 @@
 import oursql
+from urllib import parse
 
 
 class Database(object):
@@ -9,42 +10,9 @@ class Database(object):
         self.passwd = passwd
 
 
-class Movie(object):
-    def __init__(self):
-        self.title = ''
-        self.year = ''
-        self.plot = ''
-        self.outline = ''
-        self.tagline = ''
-        self.rating = ''
-        self.votes = ''
-        self.writers = []
-        self.posters = []
-        self.runtime = ''
-        self.cert = ''
-        self.top250 = ''
-        self.genres = []
-        self.directors = []
-        self.originaltitle = ''
-        self.studio = ''
-        self.trailer = ''
-        self.fanart = []
-        self.countries = []
-        self.actors = []
-        self.set = ''
-        self.fileid = ''
-        self.pathid = ''
-        self.setid = ''
-        self.imdbid = ''
-
-
-class Actor(object):
-    def __init__(self):
-        pass
-
-
 class Kodi(object):
     def __init__(self, database, substpath, logger):
+        self.name = 'kodi'
         self._database = database
         self._logger = logger
         self._cur = None
@@ -67,7 +35,6 @@ class Kodi(object):
             self._logger.error('kodi: trying to query disconnected mysql server.')
             return False
         if fetch:
-            pass  # TODO: rework this mess
             try:
                 self._cur.execute(sqlcmd)
                 rows = self._cur.fetchall()
@@ -76,14 +43,12 @@ class Kodi(object):
                 return False
             else:
                 return rows
-        else:  # TODO: change this back to try/except!
-            # try:
-            #     self._cur.execute(sqlcmd)
-            #     rowcount = self._cur.rowcount
-            # except:
-            #     return False
-            self._cur.execute(sqlcmd)
-            rowcount = self._cur.rowcount
+        else:
+            try:
+                self._cur.execute(sqlcmd)
+                rowcount = self._cur.rowcount
+            except:
+                return False
             if rowcount != expected and expected != -1:
                 # if more rows were affected than we intended, something went wrong :(
                 # -1 means we dont expect any specific amount of rows
@@ -98,9 +63,12 @@ class Kodi(object):
         rows = self._sqlexecute(sqlcmd_getroot, expected=1, fetch=True)
         if not rows:
             if rootpath is None:
-                sqlcmd_setroot = 'INSERT INTO path (strPath, strContent, strScraper, strHash, strSettings, dateAdded) VALUES ("{0}", NULL, NULL, NULL, NULL, NULL)'.format(path)
+                sqlcmd_setroot = 'INSERT INTO path (strPath, strContent, strScraper, strHash, strSettings, ' \
+                                 'dateAdded) VALUES ("{0}", NULL, NULL, NULL, NULL, NULL)'.format(path)
             else:
-                sqlcmd_setroot = 'INSERT INTO path (strPath, strContent, strScraper, strHash, strSettings, dateAdded, idParentPath) VALUES ("{0}", NULL, NULL, NULL, NULL, NULL, {1})'.format(path, rootpath)
+                sqlcmd_setroot = 'INSERT INTO path (strPath, strContent, strScraper, strHash, strSettings, ' \
+                                 'dateAdded, idParentPath) VALUES ("{0}", NULL, NULL, NULL, NULL, NULL, ' \
+                                 '{1})'.format(path, rootpath)
             rows = self._sqlexecute(sqlcmd_setroot, expected=1)
             if not rows:
                 return False
@@ -141,6 +109,22 @@ class Kodi(object):
 
     def fullpath(self, path):
         return self._substpath + path + '/'
+
+    def checkmovie(self, path, filenames, israr, rarname):
+        substpath = self._substpath + path + '/'
+        for filename in filenames:
+            if israr:
+                filename = 'rar://' + parse.quote(substpath, safe='') + rarname + '/' + filename
+            sqlcmd_getmovie = 'SELECT idMovie FROM movieview WHERE strPath="{0}" AND strFilename="{1}"'.format(
+                substpath, filename)
+            rows = self._sqlexecute(sqlcmd_getmovie, 1, True)
+            if rows:
+                return True
+        return False
+
+    def addmovie(self, movie, path):
+        print(movie.imdbid)
+        return True
 
     def cleanup(self):
         pass  # TODO: close mysql connection and ???
